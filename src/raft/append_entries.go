@@ -5,7 +5,7 @@ type AppendEntriesArgs struct {
 	LeaderId int //so follower can redirect clients
 	PrevLogIndex int //index of log entry immediately preceding new ones
 	PrevLogTerm int //term of prevLogIndex entry
-	Entries[] ApplyMsg //log entries to store (empty for heartbeat; may send more than one for efficiency)
+	Entries []LogEntry //log entries to store (empty for heartbeat; may send more than one for efficiency)
 	LeaderCommit int //leader’s commitIndex
 }
 
@@ -29,8 +29,11 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	reply.Term = rf.currentTerm
+	//DPrintf("[%d] append term=%d , with term=%d len(rf.log)=%d", rf.me, args.Term, rf.currentTerm, len(rf.log)) 
 	if rf.currentTerm <= args.Term {
-		
+		if rf.State() != FOLLOWER {
+			//DPrintf("[%d] become follower at Term=%d because appendentries\n", rf.me, args.Term)
+		}
 		rf.Become(FOLLOWER)
 		rf.lastHeartbeat = time.Now()
 		if rf.currentTerm < args.Term {
@@ -38,6 +41,21 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			//log.Printf("[%d] Term become %d\n", rf.me, args.Term)
 			rf.votedFor = -1
 		}
+		if len(rf.log) <= args.PrevLogIndex || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm{
+			reply.Success = false
+		} else {
+			rf.log = rf.log[:args.PrevLogIndex+1]
+			rf.log = append(rf.log, args.Entries...)
+			if args.LeaderCommit > rf.commitIndex {
+				rf.commitIndex = min(args.LeaderCommit, len(rf.log)-1)
+			}
+			if len(args.Entries) > 0 {
+				//DPrintf("[%d] get %d entries Term_s=%d cmds=%v\n",rf.me, len(args.Entries), args.PrevLogTerm, args.Entries) 
+			}
+			reply.Success = true
+		}
+	} else {
+		reply.Success = false
 	}
 }
 
@@ -46,6 +64,7 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	return ok
 }
 
+/*
 func (rf *Raft) heartbeats() {
 	for rf.killed() == false {
 		time.Sleep(150 * time.Millisecond)
@@ -67,6 +86,9 @@ func (rf *Raft) SendHeartbeats() {
 				rf.mu.Lock()
 				args := AppendEntriesArgs{
 					Term: rf.currentTerm,
+					LeaderId: rf.me,
+					LastLogIndex: rf.nextIndex[id]-1,
+					LastLogTerm: rf.log[rf.nextIndex[id]-1].Term
 				}
 				rf.mu.Unlock()
 				reply := AppendEntriesReply{}
@@ -102,3 +124,4 @@ func (rf *Raft) SendHeartbeats() {
 		rf.Become(FOLLOWER)
 	}
 }
+*/

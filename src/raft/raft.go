@@ -25,8 +25,6 @@ import (
 	//	"6.824/labgob"
 	"6.824/labrpc"
 	"time"
-	"log"
-	//"io/ioutil"
 )
 
 const (
@@ -61,6 +59,12 @@ type ApplyMsg struct {
 //
 // A Go object implementing a single Raft peer.
 //
+
+type LogEntry struct {
+	Term int
+	Msg ApplyMsg
+}
+
 type Raft struct {
 	mu        sync.Mutex          // Lock to protect shared access to this peer's state
 	peers     []*labrpc.ClientEnd // RPC end points of all peers
@@ -81,6 +85,8 @@ type Raft struct {
 	lastApplied int
 	nextIndex []int
 	matchIndex []int
+	log []LogEntry
+	cmdnotify chan int
 	//apply
 	applyCh chan ApplyMsg
 }
@@ -160,34 +166,6 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 }
 
 //
-// the service using Raft (e.g. a k/v server) wants to start
-// agreement on the next command to be appended to Raft's log. if this
-// server isn't the leader, returns false. otherwise start the
-// agreement and return immediately. there is no guarantee that this
-// command will ever be committed to the Raft log, since the leader
-// may fail or lose an election. even if the Raft instance has been killed,
-// this function should return gracefully.
-//
-// the first return value is the index that the command will appear at
-// if it's ever committed. the second return value is the current
-// term. the third return value is true if this server believes it is
-// the leader.
-//
-func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	index := -1
-	term := -1
-	isLeader := true
-
-	// Your code here (2B).
-
-	if rf.State() != LEADER {
-		return -1, -1, false
-	}
-
-	return index, term, isLeader
-}
-
-//
 // the tester doesn't halt goroutines created by Raft after each test,
 // but it does call the Kill() method. your code can use killed() to
 // check whether Kill() has been called. the use of atomic avoids the
@@ -215,47 +193,6 @@ func (rf *Raft) State() int32 {
 
 func (rf *Raft) Become(z int32) {
 	atomic.StoreInt32(&rf.state, z)
-}
-
-//
-// the service or tester wants to create a Raft server. the ports
-// of all the Raft servers (including this one) are in peers[]. this
-// server's port is peers[me]. all the servers' peers[] arrays
-// have the same order. persister is a place for this server to
-// save its persistent state, and also initially holds the most
-// recent saved state, if any. applyCh is a channel on which the
-// tester or service expects Raft to send ApplyMsg messages.
-// Make() must return quickly, so it should start goroutines
-// for any long-running work.
-//
-func Make(peers []*labrpc.ClientEnd, me int,
-	persister *Persister, applyCh chan ApplyMsg) *Raft {
-	rf := &Raft{}
-	rf.peers = peers
-	rf.persister = persister
-	rf.me = me
-
-	// Your initialization code here (2A, 2B, 2C).
-
-	//log.Printf("%d %d %d\n", FOLLOWER, LEADER, CANDIDATE)
-	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
-	//log.SetOutput(ioutil.Discard)
-	//log.SetFlags(0)
-	rf.state = FOLLOWER
-	rf.currentLeader = -1
-	rf.currentTerm = 0
-	rf.votedFor = -1
-	rf.commitIndex = 0
-	rf.lastApplied = 0
-	rf.lastHeartbeat = time.Now()
-	rf.applyCh = applyCh
-	// initialize from state persisted before a crash
-	rf.readPersist(persister.ReadRaftState())
-
-	// start ticker goroutine to start elections
-	go rf.ticker()
-
-	go rf.heartbeats()
-
-	return rf
+	//w := []string{"Follower", "Candidate", "LEADER"}
+	//DPrintf("[%d] Become %s\n", rf.me, w[z])
 }

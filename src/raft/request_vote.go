@@ -36,7 +36,11 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		rf.votedFor = -1
 		
 	}
-	if args.Term >= rf.currentTerm && rf.votedFor == -1 {
+	if args.Term >= rf.currentTerm &&
+		rf.votedFor == -1 &&
+		(args.LastLogTerm > rf.log[len(rf.log)-1].Term || 
+			(args.LastLogTerm == rf.log[len(rf.log)-1].Term && args.LastLogIndex >= len(rf.log)-1)){
+		//DPrintf("[%d] get vote from [%d], with term %d LastLogTerm=%d, LastLogIndex=%d, and have term=%d loglen=%d, lastlogterm=%d\n", args.CandidateId, rf.me, args.Term, args.LastLogTerm, args.LastLogTerm, rf.currentTerm, len(rf.log)-1, rf.log[len(rf.log)-1].Term)
 		rf.votedFor = args.CandidateId
 		*reply = RequestVoteReply{
 			rf.currentTerm,

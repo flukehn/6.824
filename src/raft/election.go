@@ -11,7 +11,7 @@ import (
 func (rf *Raft) StartVote(voteResult chan int) {
 	rf.mu.Lock()
 	rf.Become(CANDIDATE)
-	//log.Printf("server [%d] waiting for vote with term %d\n", rf.me, rf.currentTerm+1)
+	//DPrintf("[%d] waiting for vote with term %d\n", rf.me, rf.currentTerm+1)
 	rf.currentTerm += 1
 	
 	rf.votedFor = rf.me
@@ -33,8 +33,8 @@ func (rf *Raft) StartVote(voteResult chan int) {
 				args := RequestVoteArgs{
 					Term: rf.currentTerm,
 					CandidateId: rf.me,
-					LastLogIndex: rf.commitIndex,
-					LastLogTerm: rf.lastApplied,
+					LastLogIndex: len(rf.log)-1,
+					LastLogTerm: rf.log[len(rf.log)-1].Term,
 				}
 				rf.mu.Unlock()
 				reply := RequestVoteReply{}
@@ -55,6 +55,7 @@ func (rf *Raft) StartVote(voteResult chan int) {
 						//vote_grant <- 1
 					} else {
 						rf.mu.Unlock()
+						ret = 0
 					}
 				} else {
 					ret = 0
@@ -79,8 +80,7 @@ func (rf *Raft) StartVote(voteResult chan int) {
 			count += v
 		}
 		if count * 2 > tot {
-			rf.Become(LEADER)
-			//log.Printf("candidate [%d] become leader", rf.me)
+			//rf.Become(LEADER)
 			voteResult <- 1
 			return
 		}
@@ -101,7 +101,7 @@ func (rf *Raft) ticker() {
 		//log.Printf("server %d 's ticker\n", rf.me)
 		rf.mu.Lock()
 		//log.Printf("server %d 's ticker_s\n", rf.me)
-		if rf.State() == FOLLOWER && time.Since(rf.lastHeartbeat) > 200 * time.Millisecond {
+		if rf.State() == FOLLOWER && time.Since(rf.lastHeartbeat) > 300 * time.Millisecond {
 			//start vote
 			rf.mu.Unlock()
 			voteResult := make(chan int)
@@ -111,10 +111,23 @@ func (rf *Raft) ticker() {
 				if result  == 0 {
 					rf.Become(FOLLOWER)
 				} else {
-					rf.SendHeartbeats()
+					rf.mu.Lock()
+					rf.Become(LEADER)
+					//DPrintf("[%d] become leader with term %d\n", rf.me, rf.currentTerm)
+					rf.nextIndex = make([]int, len(rf.peers))
+					rf.matchIndex = make([]int, len(rf.peers))
+					for i := range rf.nextIndex {
+						rf.nextIndex[i] = len(rf.log)
+						rf.matchIndex[i] = 0
+					}
+					rf.mu.Unlock()
+					//rf.SendHeartbeats()
+					go func() {
+						rf.cmdnotify <- -1
+					}()
 				}
 				
-			case <-time.After(timelimit):
+			case <-time.After(150*time.Millisecond):
 				//log.Printf("candidate [%d] vote time out\n", rf.me)
 				rf.Become(FOLLOWER)
 			}

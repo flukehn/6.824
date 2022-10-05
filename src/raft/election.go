@@ -112,19 +112,23 @@ func (rf *Raft) ticker() {
 					rf.Become(FOLLOWER)
 				} else {
 					rf.mu.Lock()
-					rf.Become(LEADER)
-					//DPrintf("[%d] become leader with term %d\n", rf.me, rf.currentTerm)
+					DPrintf("[%d] become leader with term %d\n", rf.me, rf.currentTerm)
 					rf.nextIndex = make([]int, len(rf.peers))
 					rf.matchIndex = make([]int, len(rf.peers))
+					rf.appendRunning = make([]bool, len(rf.peers))
+					rf.notconn = make(map[int]bool)
+					rf.commitIndex = rf.lastApplied
 					for i := range rf.nextIndex {
 						rf.nextIndex[i] = len(rf.log)
 						rf.matchIndex[i] = 0
+						rf.appendRunning[i] = false
 					}
+					rf.Become(LEADER)
 					rf.mu.Unlock()
 					//rf.SendHeartbeats()
-					go func() {
-						rf.cmdnotify <- -1
-					}()
+					//go func() {
+					rf.cmdnotify <- -1
+					//}()
 				}
 				
 			case <-time.After(150*time.Millisecond):

@@ -28,6 +28,7 @@ min(leaderCommit, index of last new entry)
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	defer rf.persist()
 	reply.Term = rf.currentTerm
 	//DPrintf("[%d] append term=%d , with term=%d len(rf.log)=%d", rf.me, args.Term, rf.currentTerm, len(rf.log)) 
 	if rf.currentTerm <= args.Term {
@@ -47,7 +48,11 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			rf.log = rf.log[:args.PrevLogIndex+1]
 			rf.log = append(rf.log, args.Entries...)
 			if args.LeaderCommit > rf.commitIndex {
-				rf.commitIndex = min(args.LeaderCommit, len(rf.log)-1)
+				p := min(args.LeaderCommit, len(rf.log)-1)
+				if rf.commitIndex < p{
+					rf.commitIndex = p
+					//DPrintf("[%d] commit become %d\n", rf.me, p)
+				}
 			}
 			if len(args.Entries) > 0 {
 				//DPrintf("[%d] get %d entries Term_s=%d cmds=%v\n",rf.me, len(args.Entries), args.PrevLogTerm, args.Entries) 

@@ -29,6 +29,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	defer rf.persist()
 	if args.Term > rf.currentTerm {
 		rf.currentTerm = args.Term
 		//log.Printf("[%d] Term become %d\n", rf.me, args.Term)

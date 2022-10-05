@@ -29,6 +29,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.lastHeartbeat = time.Now()
 	rf.applyCh = applyCh
 	rf.cmdnotify = make(chan int)
+	rf.conn = make(chan Conn)
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 
@@ -41,6 +42,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	
 	go rf.Exec()
 
+	go rf.CheckMajority()
+	
 	return rf
 }
 //

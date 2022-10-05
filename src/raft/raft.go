@@ -18,11 +18,11 @@ package raft
 //
 
 import (
-	//	"bytes"
+	"bytes"
 	"sync"
 	"sync/atomic"
 
-	//	"6.824/labgob"
+	"6.824/labgob"
 	"6.824/labrpc"
 	"time"
 )
@@ -65,6 +65,12 @@ type LogEntry struct {
 	Msg ApplyMsg
 }
 
+type Conn struct {
+	Id int
+	Ok bool
+	//T time.Time
+}
+
 type Raft struct {
 	mu        sync.Mutex          // Lock to protect shared access to this peer's state
 	peers     []*labrpc.ClientEnd // RPC end points of all peers
@@ -85,8 +91,11 @@ type Raft struct {
 	lastApplied int
 	nextIndex []int
 	matchIndex []int
+	appendRunning []bool
 	log []LogEntry
 	cmdnotify chan int
+	conn chan Conn
+	notconn map[int]bool
 	//apply
 	applyCh chan ApplyMsg
 }
@@ -111,6 +120,19 @@ func (rf *Raft) GetState() (int, bool) {
 // see paper's Figure 2 for a description of what should be persistent.
 //
 func (rf *Raft) persist() {
+	//rf.mu.Lock()
+	//defer rf.mu.Unlock()
+	//DPrintf("[%d] persist()\n", rf.me)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	//e.Encode(rf.state)
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	//e.Encode(rf.commitIndex)
+	//e.Encode(rf.lastApplied)
+	e.Encode(rf.log)
+	data := w.Bytes()
+	rf.persister.SaveRaftState(data)
 	// Your code here (2C).
 	// Example:
 	// w := new(bytes.Buffer)
@@ -126,8 +148,25 @@ func (rf *Raft) persist() {
 // restore previously persisted state.
 //
 func (rf *Raft) readPersist(data []byte) {
+	DPrintf("[%d] readPersist\n", rf.me)
 	if data == nil || len(data) < 1 { // bootstrap without any state?
 		return
+	}
+	//time.Sleep(100*time.Millisecond)
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	var votedFor, currentTerm int
+	//var commitIndex, lastApplied int
+	var log []LogEntry
+	if d.Decode(&currentTerm) == nil {rf.currentTerm = currentTerm}
+	if d.Decode(&votedFor) == nil {rf.votedFor = votedFor}
+	//if d.Decode(&commitIndex) == nil {rf.commitIndex = commitIndex}
+	//if d.Decode(&lastApplied) == nil {rf.lastApplied = lastApplied}
+	if d.Decode(&log) == nil {
+		rf.log = log
+		//DPrintf("[%d] Persist log len=%d\n", rf.me, len(rf.log))
+	} else {
+		DPrintf("[%d] could not decode log\n", rf.me);
 	}
 	// Your code here (2C).
 	// Example:

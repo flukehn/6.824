@@ -1,7 +1,6 @@
 package raft
 import (
 	"time"
-	//"log"
 )
 //
 // the service using Raft (e.g. a k/v server) wants to start
@@ -25,6 +24,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	// Your code here (2B).
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	defer rf.persist()
 
 	if rf.State() != LEADER {
 		return -1, -1, false
@@ -40,7 +40,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			CommandIndex: index,
 		},
 	})
-	//DPrintf("[%d] get a cmd=%v index %d at term %d\n", rf.me, command, index, rf.currentTerm)
+	DPrintf("[%d] get a cmd=%v index %d at term %d\n", rf.me, command, index, rf.currentTerm)
 	go func(index int) {
 		rf.cmdnotify <- index
 	}(index)
@@ -55,8 +55,11 @@ func (rf *Raft) Exec() {
 		/*if len(rf.log) >= 2 {
 			//DPrintf("[%d] commit = %d, apply = %d\n", rf.me, rf.commitIndex, rf.lastApplied)
 		}*/
-		for ;rf.lastApplied < rf.commitIndex; rf.lastApplied++ {
-			//DPrintf("[%d] exec index %d cmd=%v\n", rf.me, rf.lastApplied+1,rf.log[rf.lastApplied+1].Msg.Command)
+		if rf.commitIndex >= len(rf.log) {
+			//DFatalf("[%d] rf.commitIndex=%d >= len(rf.log)=%d\n", rf.me, rf.commitIndex, len(rf.log))
+		}
+		for ;rf.lastApplied < rf.commitIndex && rf.lastApplied + 1 < len(rf.log); rf.lastApplied++ {
+			DPrintf("[%d] exec index %d cmd=%v\n", rf.me, rf.lastApplied+1,rf.log[rf.lastApplied+1].Msg.Command)
 			rf.applyCh <- rf.log[rf.lastApplied+1].Msg
 		}
 		rf.mu.Unlock()

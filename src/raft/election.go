@@ -11,7 +11,7 @@ import (
 func (rf *Raft) StartVote(voteResult chan int) {
 	rf.mu.Lock()
 	rf.Become(CANDIDATE)
-	//DPrintf("[%d] waiting for vote with term %d\n", rf.me, rf.currentTerm+1)
+	DPrintf("[%d] waiting for vote with term %d\n", rf.me, rf.currentTerm+1)
 	rf.currentTerm += 1
 	
 	rf.votedFor = rf.me
@@ -101,7 +101,7 @@ func (rf *Raft) ticker() {
 		//log.Printf("server %d 's ticker\n", rf.me)
 		rf.mu.Lock()
 		//log.Printf("server %d 's ticker_s\n", rf.me)
-		if rf.State() == FOLLOWER && time.Since(rf.lastHeartbeat) > 300 * time.Millisecond {
+		if rf.State() == FOLLOWER && time.Since(rf.lastHeartbeat) > 600 * time.Millisecond {
 			//start vote
 			rf.mu.Unlock()
 			voteResult := make(chan int)
@@ -117,11 +117,13 @@ func (rf *Raft) ticker() {
 					rf.matchIndex = make([]int, len(rf.peers))
 					rf.appendRunning = make([]bool, len(rf.peers))
 					rf.notconn = make(map[int]bool)
+					rf.appendTime = make([]time.Time, len(rf.peers))
 					rf.commitIndex = rf.lastApplied
 					for i := range rf.nextIndex {
 						rf.nextIndex[i] = len(rf.log)
 						rf.matchIndex[i] = 0
 						rf.appendRunning[i] = false
+						rf.appendTime[i] = time.Now()
 					}
 					rf.Become(LEADER)
 					rf.mu.Unlock()

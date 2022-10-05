@@ -92,6 +92,7 @@ type Raft struct {
 	nextIndex []int
 	matchIndex []int
 	appendRunning []bool
+	appendTime []time.Time
 	log []LogEntry
 	cmdnotify chan int
 	conn chan Conn

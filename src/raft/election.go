@@ -116,7 +116,7 @@ func (rf *Raft) ticker() {
 					rf.nextIndex = make([]int, len(rf.peers))
 					rf.matchIndex = make([]int, len(rf.peers))
 					rf.appendRunning = make([]bool, len(rf.peers))
-					rf.notconn = make(map[int]bool)
+					//rf.notconn = make(map[int]bool)
 					rf.appendTime = make([]time.Time, len(rf.peers))
 					rf.commitIndex = rf.lastApplied
 					for i := range rf.nextIndex {

@@ -3,9 +3,9 @@ package raft
 import (
 	"time"
 	"sort"
-	"log"
+	//"log"
 )
-var _ = log.Printf
+//var _ = log.Printf
 
 func (rf *Raft) CheckMajority() {
 	for {

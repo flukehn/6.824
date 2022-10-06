@@ -65,11 +65,11 @@ type LogEntry struct {
 	Msg ApplyMsg
 }
 
-type Conn struct {
+/*type Conn struct {
 	Id int
 	Ok bool
 	//T time.Time
-}
+}*/
 
 type Raft struct {
 	mu        sync.Mutex          // Lock to protect shared access to this peer's state
@@ -95,8 +95,8 @@ type Raft struct {
 	appendTime []time.Time
 	log []LogEntry
 	cmdnotify chan int
-	conn chan Conn
-	notconn map[int]bool
+	//conn chan Conn
+	//notconn map[int]bool
 	//apply
 	applyCh chan ApplyMsg
 }

@@ -15,7 +15,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// Your initialization code here (2A, 2B, 2C).
 
 	//log.Printf("%d %d %d\n", FOLLOWER, LEADER, CANDIDATE)
-	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
+	log.SetFlags(log.Ltime | log.Lmicroseconds)
 	//log.SetOutput(ioutil.Discard)
 	//log.SetFlags(0)
 	rf.state = FOLLOWER
@@ -29,7 +29,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.lastHeartbeat = time.Now()
 	rf.applyCh = applyCh
 	rf.cmdnotify = make(chan int)
-	rf.conn = make(chan Conn)
+	//rf.conn = make(chan Conn)
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 

@@ -159,7 +159,7 @@ func (rf *Raft) persist() {
 // restore previously persisted state.
 //
 func (rf *Raft) readPersist(data []byte) {
-	DPrintf("[%d] readPersist\n", rf.me)
+	//DPrintf("[%d] readPersist\n", rf.me)
 	if data == nil || len(data) < 1 { // bootstrap without any state?
 		return
 	}

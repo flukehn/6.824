@@ -40,7 +40,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			CommandIndex: index,
 		},
 	})
-	DPrintf("[%d] get a cmd=%v index %d at term %d\n", rf.me, command, index, rf.currentTerm)
+	//DPrintf("[%d] get a cmd=%v index %d at term %d\n", rf.me, command, index, rf.currentTerm)
 	go func(index int) {
 		rf.cmdnotify <- index
 	}(index)
@@ -59,10 +59,10 @@ func (rf *Raft) Exec() {
 			//DFatalf("[%d] rf.commitIndex=%d >= len(rf.log)=%d\n", rf.me, rf.commitIndex, len(rf.log))
 		}*/
 		for ;rf.lastApplied < rf.commitIndex && rf.lastApplied < len(rf.log) + rf.SnapshotIndex; rf.lastApplied++ {
-			//DPrintf("[%d] exec index %d cmd=%v\n", rf.me, rf.lastApplied+1,rf.log[rf.lastApplied-rf.SnapshotIndex].Msg.Command)
 			Msg := rf.log[rf.lastApplied-rf.SnapshotIndex].Msg
 			rf.mu.Unlock()
 			rf.applyCh <- Msg
+			//DPrintf("[%d] exec index %d cmd=%v\n", rf.me, rf.lastApplied+1,Msg.Command)
 			rf.mu.Lock()
 			//DPrintf("[%d] exec end\n", rf.me)	
 		}

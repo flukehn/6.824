@@ -47,6 +47,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			args.PrevLogIndex < rf.SnapshotIndex ||
 			(args.PrevLogIndex == rf.SnapshotIndex && args.PrevLogTerm != rf.SnapshotTerm) ||
 			(args.PrevLogIndex > rf.SnapshotIndex && rf.log[args.PrevLogIndex - rf.SnapshotIndex - 1].Term != args.PrevLogTerm) {
+			//DPrintf("[%d] append failed\n", rf.me) 
 			reply.Success = false
 		} else {
 			rf.log = rf.log[:args.PrevLogIndex-rf.SnapshotIndex]
@@ -58,8 +59,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 					//DPrintf("[%d] commit become %d\n", rf.me, p)
 				}
 			}
-			if len(args.Entries) > 0 {
-				DPrintf("[%d] get %d entries Term_s=%d cmds=%v\n",rf.me, len(args.Entries), args.PrevLogTerm, args.Entries) 
+			if len(args.Entries) >= 0 {
+				//DPrintf("[%d] get %d entries Term_s=%d cmds=%v\n",rf.me, len(args.Entries), args.PrevLogTerm, args.Entries) 
 			}
 			reply.Success = true
 		}

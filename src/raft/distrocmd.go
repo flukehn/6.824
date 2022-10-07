@@ -22,7 +22,7 @@ func (rf *Raft) CheckMajority() {
 			}
 			if count * 2 >= len(rf.peers) {
 				rf.Become(FOLLOWER)
-				DPrintf("[%d] become follower with distrocmd failed\n", rf.me)
+				//DPrintf("[%d] become follower with distrocmd failed\n", rf.me)
 			}
 		}
 		rf.mu.Unlock()
@@ -41,7 +41,7 @@ func (rf *Raft) CheckMajority() {
 			rf.notconn[v.Id] = true
 			if len(rf.notconn) * 2 >= len(rf.peers) {
 				rf.Become(FOLLOWER)
-				DPrintf("[%d] become follower with distrocmd failed\n", rf.me)
+				//DPrintf("[%d] become follower with distrocmd failed\n", rf.me)
 			}	
 		}
 		rf.mu.Unlock()
@@ -70,7 +70,6 @@ func (rf *Raft) DistroCmd() {
 					break
 				}
 				if i != rf.me {
-					//DPrintf("leader [%d] send heartbeat to [%d]\n", rf.me, i)
 					go func(id int) {
 						
 						rf.mu.Lock()
@@ -79,6 +78,7 @@ func (rf *Raft) DistroCmd() {
 							//Term <- 1
 							return
 						}
+						
 						rf.appendRunning[id]=true
 						rf.mu.Unlock()
 						
@@ -90,11 +90,11 @@ func (rf *Raft) DistroCmd() {
 								rf.mu.Unlock()
 								return
 							}
-							
+							//DPrintf("leader [%d] send heartbeat to [%d]\n", rf.me, id)
 							var ok bool
 							Ok := make(chan bool)
 							st := rf.nextIndex[id]-rf.SnapshotIndex-1
-							reply := AppendEntriesReply{}
+							var reply AppendEntriesReply
 							var nxt int
 							if st >= 0 {
 								var Tran_Entries []LogEntry
@@ -124,7 +124,17 @@ func (rf *Raft) DistroCmd() {
 								//DPrintf("leader [%d] send heartbeat to [%d]\n", rf.me, id)
 								go rf.sendAppendEntries(id, &args, &reply, Ok)
 							} else {
-								DFatalf("need snapshot GG\n")
+								//DFatalf("need snapshot GG\n")
+								nxt = rf.SnapshotIndex+1
+								args := InstallSnapshotArgs{
+									Term: rf.currentTerm,
+									LeaderId: rf.me,
+									LastIncludedIndex: rf.SnapshotIndex,
+									LastIncludedTerm: rf.SnapshotTerm,
+									Snapshot: rf.snapshot,
+								}
+								rf.mu.Unlock()
+								go rf.sendInstallSnapshot(id, &args, &reply, Ok)
 							}
 							select {
 							case <- time.After(500*time.Millisecond):
@@ -134,6 +144,10 @@ func (rf *Raft) DistroCmd() {
 								if ok {
 									rf.mu.Lock()
 									rf.appendTime[id] = time.Now()
+									if rf.State() != LEADER {
+										rf.mu.Unlock()
+										return
+									}
 									if reply.Success{
 										rf.matchIndex[id] = nxt-1
 										rf.nextIndex[id] = nxt
@@ -144,7 +158,7 @@ func (rf *Raft) DistroCmd() {
 										
 										return
 									} else if reply.Term > rf.currentTerm{
-										DPrintf("[%d] become follower with because a server has large term=%d\n", rf.me, reply.Term)
+										//DPrintf("[%d] become follower with because a server has large term=%d\n", rf.me, reply.Term)
 										rf.Become(FOLLOWER)
 										rf.currentTerm = reply.Term
 										rf.votedFor=-1
@@ -153,6 +167,9 @@ func (rf *Raft) DistroCmd() {
 										//Term <- -1
 										return
 									} else {
+										if st < 0{
+											DFatalf("[%d] -> [%d], st < 0 and reply.Success=false\n", rf.me, id)
+										}
 										rf.nextIndex[id] = max(rf.nextIndex[id] - del_len, rf.matchIndex[id]+1)
 										del_len = min(del_len * 2, rf.SnapshotIndex + len(rf.log) + 1 - rf.nextIndex[id])
 										rf.mu.Unlock()

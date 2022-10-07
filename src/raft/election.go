@@ -11,7 +11,7 @@ import (
 func (rf *Raft) StartVote(voteResult chan int) {
 	rf.mu.Lock()
 	rf.Become(CANDIDATE)
-	DPrintf("[%d] waiting for vote with term %d\n", rf.me, rf.currentTerm+1)
+	//DPrintf("[%d] waiting for vote with term %d\n", rf.me, rf.currentTerm+1)
 	rf.currentTerm += 1
 	
 	rf.votedFor = rf.me
@@ -118,7 +118,7 @@ func (rf *Raft) ticker() {
 					rf.Become(FOLLOWER)
 				} else {
 					rf.mu.Lock()
-					DPrintf("[%d] become leader with term %d\n", rf.me, rf.currentTerm)
+					//DPrintf("[%d] become leader with term %d\n", rf.me, rf.currentTerm)
 					rf.nextIndex = make([]int, len(rf.peers))
 					rf.matchIndex = make([]int, len(rf.peers))
 					rf.appendRunning = make([]bool, len(rf.peers))

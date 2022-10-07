@@ -90,32 +90,42 @@ func (rf *Raft) DistroCmd() {
 								rf.mu.Unlock()
 								return
 							}
-							var Tran_Entries []LogEntry
 							
-							if del_len == 1 {
-								Tran_Entries = rf.log[rf.nextIndex[id]:]
-							} else {
-								length := min(len(rf.log), rf.nextIndex[id]+del_len)
-								Tran_Entries = rf.log[rf.nextIndex[id]:length]
-							}
-							
-							//Tran_Entries = rf.log[rf.nextIndex[id]:]
-							var nxt int = rf.nextIndex[id]+len(Tran_Entries)
-							args := AppendEntriesArgs{
-								Term: rf.currentTerm,
-								LeaderId: rf.me,
-								LeaderCommit: rf.commitIndex,
-								PrevLogIndex: rf.nextIndex[id]-1,
-								PrevLogTerm: rf.log[rf.nextIndex[id]-1].Term,
-								Entries: Tran_Entries,
-								//Entries: rf.log[rf.nextIndex[id]:],
-							}
-							rf.mu.Unlock()
-							reply := AppendEntriesReply{}
-							DPrintf("leader [%d] send heartbeat to [%d]\n", rf.me, id)
 							var ok bool
 							Ok := make(chan bool)
-							go rf.sendAppendEntries(id, &args, &reply, Ok)
+							st := rf.nextIndex[id]-rf.SnapshotIndex-1
+							reply := AppendEntriesReply{}
+							var nxt int
+							if st >= 0 {
+								var Tran_Entries []LogEntry
+								if del_len == 1 {
+									Tran_Entries = rf.log[st:]
+								} else {
+									length := min(len(rf.log), st+del_len)
+									Tran_Entries = rf.log[st:length]
+								}
+								
+								//Tran_Entries = rf.log[rf.nextIndex[id]:]
+								nxt = rf.nextIndex[id]+len(Tran_Entries)
+								PrevLogTerm := rf.SnapshotTerm
+								if st >= 1 {
+									PrevLogTerm = rf.log[st-1].Term
+								}
+								args := AppendEntriesArgs{
+									Term: rf.currentTerm,
+									LeaderId: rf.me,
+									LeaderCommit: rf.commitIndex,
+									PrevLogIndex: rf.nextIndex[id]-1,
+									PrevLogTerm: PrevLogTerm,
+									Entries: Tran_Entries,
+									//Entries: rf.log[rf.nextIndex[id]:],
+								}
+								rf.mu.Unlock()
+								//DPrintf("leader [%d] send heartbeat to [%d]\n", rf.me, id)
+								go rf.sendAppendEntries(id, &args, &reply, Ok)
+							} else {
+								DFatalf("need snapshot GG\n")
+							}
 							select {
 							case <- time.After(500*time.Millisecond):
 								continue
@@ -144,12 +154,12 @@ func (rf *Raft) DistroCmd() {
 										return
 									} else {
 										rf.nextIndex[id] = max(rf.nextIndex[id] - del_len, rf.matchIndex[id]+1)
-										del_len = min(del_len * 2, len(rf.log) - rf.nextIndex[id])
+										del_len = min(del_len * 2, rf.SnapshotIndex + len(rf.log) + 1 - rf.nextIndex[id])
 										rf.mu.Unlock()
 										//rf.conn <- Conn{id, true}
 									}
 								} else {
-									DPrintf("[%d] send to [%d] timeout\n", rf.me, id)
+									//DPrintf("[%d] send to [%d] timeout\n", rf.me, id)
 									//rf.mu.Lock()
 									//rf.appendRunning[id]=false
 									//rf.mu.Unlock()
@@ -190,25 +200,30 @@ func (rf *Raft) DistroCmd() {
 				return
 			}
 			
-			rf.matchIndex[rf.me] = len(rf.log)-1
+			rf.matchIndex[rf.me] = len(rf.log) + rf.SnapshotIndex
 			
 			match := make([]int, len(rf.peers))
 			copy(match, rf.matchIndex)
 			sort.Slice(match, func(i, j int) bool {
 				return match[i] < match[j]
 			})
-			if match[len(match)-1] >= len(rf.log) {
+			/*if match[len(match)-1] >= len(rf.log) {
 				DFatalf("[%d] match wrong\n", rf.me)
-			}
+			}*/
 			/*for i, m := range rf.matchIndex {
 				log.Printf("[%d] match %d\n",i, m)
 			} */
-			p := match[(len(rf.peers)-1)/2]
+			Index := match[(len(rf.peers)-1)/2]
+			p := Index - rf.SnapshotIndex - 1
 			//log.Printf("[%d] commit %d, tot_len = %d\n", rf.me, p, len(rf.log))
-			if rf.log[p].Term == rf.currentTerm{
+			Term := rf.SnapshotTerm
+			if p >= 0 {
+				Term = rf.log[p].Term
+			}
+			if Term == rf.currentTerm{
 				//rf.commitIndex = max(rf.commitIndex, p)
-				if rf.commitIndex < p {
-					rf.commitIndex = p
+				if rf.commitIndex < Index {
+					rf.commitIndex = Index
 					//DPrintf("[%d] leader become %d\n", rf.me, p)
 				}
 					

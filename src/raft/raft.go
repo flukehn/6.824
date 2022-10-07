@@ -95,8 +95,10 @@ type Raft struct {
 	appendTime []time.Time
 	log []LogEntry
 	cmdnotify chan int
-	//conn chan Conn
-	//notconn map[int]bool
+	//snapshot
+	snapshot []byte
+	SnapshotIndex int
+	SnapshotTerm int
 	//apply
 	applyCh chan ApplyMsg
 }
@@ -120,10 +122,8 @@ func (rf *Raft) GetState() (int, bool) {
 // where it can later be retrieved after a crash and restart.
 // see paper's Figure 2 for a description of what should be persistent.
 //
-func (rf *Raft) persist() {
-	//rf.mu.Lock()
-	//defer rf.mu.Unlock()
-	//DPrintf("[%d] persist()\n", rf.me)
+
+func (rf *Raft) persistdata() []byte {
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
 	//e.Encode(rf.state)
@@ -131,8 +131,18 @@ func (rf *Raft) persist() {
 	e.Encode(rf.votedFor)
 	//e.Encode(rf.commitIndex)
 	//e.Encode(rf.lastApplied)
+	e.Encode(rf.SnapshotIndex)
+	e.Encode(rf.SnapshotTerm)
 	e.Encode(rf.log)
-	data := w.Bytes()
+	return w.Bytes()
+}
+
+func (rf *Raft) persist() {
+	//rf.mu.Lock()
+	//defer rf.mu.Unlock()
+	//DPrintf("[%d] persist()\n", rf.me)
+	
+	data := rf.persistdata()
 	rf.persister.SaveRaftState(data)
 	// Your code here (2C).
 	// Example:
@@ -156,18 +166,22 @@ func (rf *Raft) readPersist(data []byte) {
 	//time.Sleep(100*time.Millisecond)
 	r := bytes.NewBuffer(data)
 	d := labgob.NewDecoder(r)
-	var votedFor, currentTerm int
+	var votedFor, currentTerm, SnapshotIndex, SnapshotTerm int
 	//var commitIndex, lastApplied int
 	var log []LogEntry
 	if d.Decode(&currentTerm) == nil {rf.currentTerm = currentTerm}
 	if d.Decode(&votedFor) == nil {rf.votedFor = votedFor}
+	if d.Decode(&SnapshotIndex) == nil {rf.SnapshotIndex = SnapshotIndex}
+	if d.Decode(&SnapshotTerm) == nil {rf.SnapshotTerm = SnapshotTerm}
+	rf.commitIndex = rf.SnapshotIndex
+	rf.lastApplied = rf.SnapshotIndex
 	//if d.Decode(&commitIndex) == nil {rf.commitIndex = commitIndex}
 	//if d.Decode(&lastApplied) == nil {rf.lastApplied = lastApplied}
 	if d.Decode(&log) == nil {
 		rf.log = log
 		//DPrintf("[%d] Persist log len=%d\n", rf.me, len(rf.log))
 	} else {
-		DPrintf("[%d] could not decode log\n", rf.me);
+		DFatalf("[%d] could not decode log\n", rf.me);
 	}
 	// Your code here (2C).
 	// Example:
@@ -182,27 +196,6 @@ func (rf *Raft) readPersist(data []byte) {
 	//   rf.xxx = xxx
 	//   rf.yyy = yyy
 	// }
-}
-
-
-//
-// A service wants to switch to snapshot.  Only do so if Raft hasn't
-// have more recent info since it communicate the snapshot on applyCh.
-//
-func (rf *Raft) CondInstallSnapshot(lastIncludedTerm int, lastIncludedIndex int, snapshot []byte) bool {
-
-	// Your code here (2D).
-
-	return true
-}
-
-// the service says it has created a snapshot that has
-// all info up to and including index. this means the
-// service no longer needs the log through (and including)
-// that index. Raft should now trim its log as much as possible.
-func (rf *Raft) Snapshot(index int, snapshot []byte) {
-	// Your code here (2D).
-
 }
 
 //

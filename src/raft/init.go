@@ -25,13 +25,16 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 	rf.log = make([]LogEntry, 0)
-	rf.log = append(rf.log, LogEntry{Term: 0});
+	//rf.log = append(rf.log, LogEntry{Term: 0});
 	rf.lastHeartbeat = time.Now()
 	rf.applyCh = applyCh
 	rf.cmdnotify = make(chan int)
-	//rf.conn = make(chan Conn)
+	rf.snapshot = nil
+	rf.SnapshotIndex = 0
+	rf.SnapshotTerm = 0
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
+	rf.snapshot = persister.ReadSnapshot()
 
 	// start ticker goroutine to start elections
 	go rf.ticker()

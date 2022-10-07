@@ -31,7 +31,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}
 
 	term = rf.currentTerm
-	index = len(rf.log)
+	index = len(rf.log) + rf.SnapshotIndex + 1
 	rf.log = append(rf.log, LogEntry{
 		Term: term,
 		Msg: ApplyMsg{
@@ -55,12 +55,16 @@ func (rf *Raft) Exec() {
 		/*if len(rf.log) >= 2 {
 			//DPrintf("[%d] commit = %d, apply = %d\n", rf.me, rf.commitIndex, rf.lastApplied)
 		}*/
-		if rf.commitIndex >= len(rf.log) {
+		/*if rf.commitIndex >= len(rf.log) {
 			//DFatalf("[%d] rf.commitIndex=%d >= len(rf.log)=%d\n", rf.me, rf.commitIndex, len(rf.log))
-		}
-		for ;rf.lastApplied < rf.commitIndex && rf.lastApplied + 1 < len(rf.log); rf.lastApplied++ {
-			DPrintf("[%d] exec index %d cmd=%v\n", rf.me, rf.lastApplied+1,rf.log[rf.lastApplied+1].Msg.Command)
-			rf.applyCh <- rf.log[rf.lastApplied+1].Msg
+		}*/
+		for ;rf.lastApplied < rf.commitIndex && rf.lastApplied < len(rf.log) + rf.SnapshotIndex; rf.lastApplied++ {
+			//DPrintf("[%d] exec index %d cmd=%v\n", rf.me, rf.lastApplied+1,rf.log[rf.lastApplied-rf.SnapshotIndex].Msg.Command)
+			Msg := rf.log[rf.lastApplied-rf.SnapshotIndex].Msg
+			rf.mu.Unlock()
+			rf.applyCh <- Msg
+			rf.mu.Lock()
+			//DPrintf("[%d] exec end\n", rf.me)	
 		}
 		rf.mu.Unlock()
 	}

@@ -42,20 +42,24 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			//log.Printf("[%d] Term become %d\n", rf.me, args.Term)
 			rf.votedFor = -1
 		}
-		if len(rf.log) <= args.PrevLogIndex || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm{
+		LastLogIndex := len(rf.log) + rf.SnapshotIndex
+		if LastLogIndex < args.PrevLogIndex ||
+			args.PrevLogIndex < rf.SnapshotIndex ||
+			(args.PrevLogIndex == rf.SnapshotIndex && args.PrevLogTerm != rf.SnapshotTerm) ||
+			(args.PrevLogIndex > rf.SnapshotIndex && rf.log[args.PrevLogIndex - rf.SnapshotIndex - 1].Term != args.PrevLogTerm) {
 			reply.Success = false
 		} else {
-			rf.log = rf.log[:args.PrevLogIndex+1]
+			rf.log = rf.log[:args.PrevLogIndex-rf.SnapshotIndex]
 			rf.log = append(rf.log, args.Entries...)
 			if args.LeaderCommit > rf.commitIndex {
-				p := min(args.LeaderCommit, len(rf.log)-1)
+				p := min(args.LeaderCommit, rf.SnapshotIndex + len(rf.log))
 				if rf.commitIndex < p{
 					rf.commitIndex = p
 					//DPrintf("[%d] commit become %d\n", rf.me, p)
 				}
 			}
 			if len(args.Entries) > 0 {
-				//DPrintf("[%d] get %d entries Term_s=%d cmds=%v\n",rf.me, len(args.Entries), args.PrevLogTerm, args.Entries) 
+				DPrintf("[%d] get %d entries Term_s=%d cmds=%v\n",rf.me, len(args.Entries), args.PrevLogTerm, args.Entries) 
 			}
 			reply.Success = true
 		}

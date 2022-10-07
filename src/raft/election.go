@@ -30,11 +30,16 @@ func (rf *Raft) StartVote(voteResult chan int) {
 			go func(id int){
 				//log.Printf("[%d] request [%d] vote\n", rf.me, id)
 				rf.mu.Lock()
+				LastLogIndex := rf.SnapshotIndex + len(rf.log)
+				LastLogTerm := rf.SnapshotTerm
+				if len(rf.log) > 0{
+					LastLogTerm = rf.log[len(rf.log)-1].Term
+				}
 				args := RequestVoteArgs{
 					Term: rf.currentTerm,
 					CandidateId: rf.me,
-					LastLogIndex: len(rf.log)-1,
-					LastLogTerm: rf.log[len(rf.log)-1].Term,
+					LastLogIndex: LastLogIndex,
+					LastLogTerm: LastLogTerm,
 				}
 				rf.mu.Unlock()
 				reply := RequestVoteReply{}
@@ -68,6 +73,7 @@ func (rf *Raft) StartVote(voteResult chan int) {
 		}
 	}
 	
+	// need optimize !!!
 	for i := 0; i < tot - 1; i++ {
 		v := <- vote_grant
 		//log.Printf("server %d get a result %d\n", rf.me, v)
@@ -118,9 +124,9 @@ func (rf *Raft) ticker() {
 					rf.appendRunning = make([]bool, len(rf.peers))
 					//rf.notconn = make(map[int]bool)
 					rf.appendTime = make([]time.Time, len(rf.peers))
-					rf.commitIndex = rf.lastApplied
+					//rf.commitIndex = rf.lastApplied
 					for i := range rf.nextIndex {
-						rf.nextIndex[i] = len(rf.log)
+						rf.nextIndex[i] = len(rf.log) + rf.SnapshotIndex + 1
 						rf.matchIndex[i] = 0
 						rf.appendRunning[i] = false
 						rf.appendTime[i] = time.Now()

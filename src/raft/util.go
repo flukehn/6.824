@@ -13,9 +13,9 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 }
 
 func DFatalf(format string, a ...interface{}) (n int, err error) {
-	if Debug {
-		log.Fatalf(format, a...)
-	}
+	//if Debug {
+	log.Fatalf(format, a...)
+	//}
 	return
 }
 

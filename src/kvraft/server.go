@@ -1,8 +1,6 @@
 package kvraft
 
 import (
-	"6.824/labgob"
-	"6.824/labrpc"
 	"6.824/raft"
 	"log"
 	"sync"
@@ -18,13 +16,6 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
-
-type Op struct {
-	// Your definitions here.
-	// Field names must start with capital letters,
-	// otherwise RPC will break.
-}
-
 type KVServer struct {
 	mu      sync.Mutex
 	me      int
@@ -35,15 +26,9 @@ type KVServer struct {
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
-}
-
-
-func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
-	// Your code here.
-}
-
-func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
-	// Your code here.
+	db map[string]string
+	lastseq map[int64]int32
+	waitch map[int]chan ExecResult
 }
 
 //
@@ -65,37 +50,4 @@ func (kv *KVServer) Kill() {
 func (kv *KVServer) killed() bool {
 	z := atomic.LoadInt32(&kv.dead)
 	return z == 1
-}
-
-//
-// servers[] contains the ports of the set of
-// servers that will cooperate via Raft to
-// form the fault-tolerant key/value service.
-// me is the index of the current server in servers[].
-// the k/v server should store snapshots through the underlying Raft
-// implementation, which should call persister.SaveStateAndSnapshot() to
-// atomically save the Raft state along with the snapshot.
-// the k/v server should snapshot when Raft's saved state exceeds maxraftstate bytes,
-// in order to allow Raft to garbage-collect its log. if maxraftstate is -1,
-// you don't need to snapshot.
-// StartKVServer() must return quickly, so it should start goroutines
-// for any long-running work.
-//
-func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, maxraftstate int) *KVServer {
-	// call labgob.Register on structures you want
-	// Go's RPC library to marshall/unmarshall.
-	labgob.Register(Op{})
-
-	kv := new(KVServer)
-	kv.me = me
-	kv.maxraftstate = maxraftstate
-
-	// You may need initialization code here.
-
-	kv.applyCh = make(chan raft.ApplyMsg)
-	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
-
-	// You may need initialization code here.
-
-	return kv
 }

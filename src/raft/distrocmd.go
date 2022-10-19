@@ -17,7 +17,7 @@ func (rf *Raft) CheckMajority() {
 		}
 		var count int = 0
 		for i := range rf.peers {
-			if i != rf.me && time.Since(rf.appendTime[i]) > 1200*time.Millisecond {
+			if i != rf.me && time.Since(rf.appendTime[i]) > 1500*time.Millisecond {
 				count += 1
 			}
 			if count * 2 >= len(rf.peers) {
@@ -48,6 +48,44 @@ func (rf *Raft) CheckMajority() {
 	}*/
 }
 
+func (rf *Raft) CommitLog() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if rf.State() != LEADER {
+		return
+	}
+	
+	rf.matchIndex[rf.me] = len(rf.log) + rf.SnapshotIndex
+	
+	match := make([]int, len(rf.peers))
+	copy(match, rf.matchIndex)
+	sort.Slice(match, func(i, j int) bool {
+		return match[i] < match[j]
+	})
+	/*if match[len(match)-1] >= len(rf.log) {
+		DFatalf("[%d] match wrong\n", rf.me)
+	}*/
+	/*for i, m := range rf.matchIndex {
+		log.Printf("[%d] match %d\n",i, m)
+	} */
+	Index := match[(len(rf.peers)-1)/2]
+	p := Index - rf.SnapshotIndex - 1
+	//log.Printf("[%d] commit %d, tot_len = %d\n", rf.me, p, len(rf.log))
+	Term := rf.SnapshotTerm
+	if p >= 0 {
+		Term = rf.log[p].Term
+	}
+	if Term == rf.currentTerm{
+		//rf.commitIndex = max(rf.commitIndex, p)
+		if rf.commitIndex < Index {
+			rf.commitIndex = Index
+			//DPrintf("[%d] leader become %d\n", rf.me, p)
+		}
+			
+	}
+}
+
+
 func (rf *Raft) DistroCmd() {
 	for {
 		select{
@@ -72,6 +110,7 @@ func (rf *Raft) DistroCmd() {
 				if i != rf.me {
 					go func(id int) {
 						
+						
 						rf.mu.Lock()
 						if rf.appendRunning[id] {
 							rf.mu.Unlock()
@@ -81,7 +120,7 @@ func (rf *Raft) DistroCmd() {
 						
 						rf.appendRunning[id]=true
 						rf.mu.Unlock()
-						
+						defer rf.CommitLog()
 						var del_len = 1
 						for {
 							rf.mu.Lock()
@@ -187,6 +226,7 @@ func (rf *Raft) DistroCmd() {
 						}
 					} (i)
 				}
+				go rf.CommitLog()
 			}
 			/*
 			var count int = 0
@@ -210,42 +250,6 @@ func (rf *Raft) DistroCmd() {
 			}
 			*/
 		} ()
-		go func() {
-			rf.mu.Lock()
-			defer rf.mu.Unlock()
-			if rf.State() != LEADER {
-				return
-			}
-			
-			rf.matchIndex[rf.me] = len(rf.log) + rf.SnapshotIndex
-			
-			match := make([]int, len(rf.peers))
-			copy(match, rf.matchIndex)
-			sort.Slice(match, func(i, j int) bool {
-				return match[i] < match[j]
-			})
-			/*if match[len(match)-1] >= len(rf.log) {
-				DFatalf("[%d] match wrong\n", rf.me)
-			}*/
-			/*for i, m := range rf.matchIndex {
-				log.Printf("[%d] match %d\n",i, m)
-			} */
-			Index := match[(len(rf.peers)-1)/2]
-			p := Index - rf.SnapshotIndex - 1
-			//log.Printf("[%d] commit %d, tot_len = %d\n", rf.me, p, len(rf.log))
-			Term := rf.SnapshotTerm
-			if p >= 0 {
-				Term = rf.log[p].Term
-			}
-			if Term == rf.currentTerm{
-				//rf.commitIndex = max(rf.commitIndex, p)
-				if rf.commitIndex < Index {
-					rf.commitIndex = Index
-					//DPrintf("[%d] leader become %d\n", rf.me, p)
-				}
-					
-			}
-		}()
 		//DPrintf("[%d] distrocmd\n", rf.me)
 	}
 }

@@ -1,10 +1,13 @@
 package kvraft
 
 import (
+	"6.824/labgob"
 	"6.824/raft"
 	"log"
 	"sync"
 	"sync/atomic"
+	"bytes"
+	"time"
 )
 
 const Debug = false
@@ -26,9 +29,37 @@ type KVServer struct {
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
+	persister *raft.Persister
 	db map[string]string
 	lastseq map[int64]int32
 	waitch map[int]chan ExecResult
+	lastexeindex int
+}
+
+func (kv* KVServer) InstallSnapshot(snapshot []byte) {
+	r := bytes.NewBuffer(snapshot)
+	d := labgob.NewDecoder(r)
+	var db map[string]string
+	var lastseq map[int64]int32
+	if d.Decode(&db) == nil {kv.db = db}
+	if d.Decode(&lastseq) == nil {kv.lastseq = lastseq}
+}
+
+func (kv* KVServer) Snapshot() {
+	for {
+		time.Sleep(15*time.Millisecond)
+		kv.mu.Lock()
+		if kv.maxraftstate == -1 || kv.maxraftstate * 5 > kv.persister.RaftStateSize() {
+			kv.mu.Unlock()
+			continue
+		}
+		w := new(bytes.Buffer)
+		e := labgob.NewEncoder(w)
+		e.Encode(kv.db)
+		e.Encode(kv.lastseq)
+		kv.rf.Snapshot(kv.lastexeindex, w.Bytes())
+		kv.mu.Unlock()
+	}
 }
 
 //

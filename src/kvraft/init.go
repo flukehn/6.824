@@ -45,6 +45,7 @@ func (kv* KVServer) Execmd() {
 				}
 			}
 			index := msg.CommandIndex
+			kv.lastexeindex = index
 			waitch, exist := kv.waitch[index]
 			go func() {
 				if exist {
@@ -52,7 +53,8 @@ func (kv* KVServer) Execmd() {
 				}
 			}()
 		} else if msg.SnapshotValid {
-			DPrintf("Snapshot not impl yet.\n")
+			//DPrintf("Snapshot not impl yet.\n")
+			kv.InstallSnapshot(msg.Snapshot)
 		}
 		kv.mu.Unlock()
 	}
@@ -77,7 +79,10 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.db = make(map[string]string)
 	kv.waitch = make(map[int]chan ExecResult)
 	kv.lastseq = make(map[int64]int32)
+	kv.persister = persister
+	kv.InstallSnapshot(persister.ReadSnapshot())
 	go kv.Execmd()
+	go kv.Snapshot()
 	return kv
 }
 

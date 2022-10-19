@@ -91,4 +91,7 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	case <-time.After(1000*time.Millisecond):
 		reply.Err=ErrWrongLeader
 	}
+	kv.mu.Lock()
+	delete(kv.waitch, index)
+	kv.mu.Unlock()
 }
